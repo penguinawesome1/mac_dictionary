@@ -23,7 +23,6 @@ pub enum CliError {
 pub fn load_blocks(path: &str) -> Result<Vec<Block>, CliError> {
     let contents: String = fs::read_to_string(path)?;
     let block_toml_map: BlockTomlMap = toml::from_str(&contents)?;
-
     let named_toml_blocks: Vec<(String, BlockToml)> = block_toml_map.blocks.into_iter().collect();
 
     named_toml_blocks
