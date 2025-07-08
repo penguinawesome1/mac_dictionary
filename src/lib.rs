@@ -28,7 +28,7 @@ impl Block {
     pub const MISSING: Block = Self::new(false, true, false, true, false);
 
     /// Creates a new block given all characteristics of it.
-    pub const fn new(
+    pub(crate) const fn new(
         is_hoverable: bool,
         is_visible: bool,
         is_breakable: bool,
