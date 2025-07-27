@@ -1,6 +1,37 @@
 mod config;
 
-pub use crate::config::{ load_blocks, CliError };
+pub use crate::config::{CliError, load_blocks};
+use std::path::Path;
+use std::sync::OnceLock;
+
+static BLOCK_DICTIONARY: OnceLock<Result<Vec<Block>, CliError>> = OnceLock::new();
+
+/// Initializes the global block dictionary.
+/// Returns an error if the dictionary has already been initialized.
+pub fn initialize_block_dictionary<P: AsRef<Path>>(path: P) -> Result<(), CliError> {
+    BLOCK_DICTIONARY.set(load_blocks(path)).map_err(|_| {
+        CliError::IoError(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            "Block dictionary already initialized",
+        ))
+    })?;
+
+    Ok(())
+}
+
+pub fn get_block_definition(value: usize) -> &'static Block {
+    match BLOCK_DICTIONARY.get() {
+        Some(Ok(dictionary)) => dictionary.get(value).unwrap_or(&Block::MISSING),
+        Some(Err(e)) => {
+            eprintln!("Error loading block dictionary: {}", e);
+            &Block::MISSING
+        }
+        None => {
+            eprintln!("Need to initialize block dictionary");
+            &Block::MISSING
+        }
+    }
+}
 
 macro_rules! impl_getter {
     ($name:ident, $mask:expr) => {
@@ -33,14 +64,13 @@ impl Block {
         is_visible: bool,
         is_breakable: bool,
         is_collidable: bool,
-        is_replaceable: bool
+        is_replaceable: bool,
     ) -> Self {
-        let data: u8 =
-            ((is_hoverable as u8) * Self::HOVERABLE_MASK) |
-            ((is_visible as u8) * Self::VISIBLE_MASK) |
-            ((is_breakable as u8) * Self::BREAKABLE_MASK) |
-            ((is_collidable as u8) * Self::COLLIDABLE_MASK) |
-            ((is_replaceable as u8) * Self::REPLACEABLE_MASK);
+        let data: u8 = ((is_hoverable as u8) * Self::HOVERABLE_MASK)
+            | ((is_visible as u8) * Self::VISIBLE_MASK)
+            | ((is_breakable as u8) * Self::BREAKABLE_MASK)
+            | ((is_collidable as u8) * Self::COLLIDABLE_MASK)
+            | ((is_replaceable as u8) * Self::REPLACEABLE_MASK);
 
         Self { data }
     }

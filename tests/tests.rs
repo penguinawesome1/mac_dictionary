@@ -1,4 +1,7 @@
-use block_dictionary::{ Block, load_blocks, CliError };
+use block_dictionary::{
+    Block, CliError, get_block_definition, initialize_block_dictionary, load_blocks,
+};
+use std::path::Path;
 
 #[test]
 fn test_config() -> Result<(), CliError> {
@@ -18,4 +21,16 @@ fn test_missing() {
     assert!(Block::MISSING.is_visible());
     assert!(!Block::MISSING.is_replaceable());
     assert_eq!(Block::MISSING, Block::default());
+}
+
+#[test]
+fn test_block_dictionary() -> Result<(), CliError> {
+    initialize_block_dictionary(Path::new("./tests/Blocks.toml"))?;
+
+    let dirt = get_block_definition(2);
+
+    assert!(dirt.is_breakable());
+    assert!(dirt.is_visible());
+
+    Ok(())
 }
