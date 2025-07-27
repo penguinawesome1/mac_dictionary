@@ -19,7 +19,7 @@ pub fn initialize_block_dictionary<P: AsRef<Path>>(path: P) -> Result<(), CliErr
     Ok(())
 }
 
-pub fn get_block_definition(value: usize) -> &'static Block {
+pub fn definition(value: usize) -> &'static Block {
     match BLOCK_DICTIONARY.get() {
         Some(Ok(dictionary)) => dictionary.get(value).unwrap_or(&Block::MISSING),
         Some(Err(e)) => {
