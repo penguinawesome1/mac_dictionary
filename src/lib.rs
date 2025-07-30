@@ -187,14 +187,12 @@ macro_rules! dictionary {
 
 			#[derive(Deserialize)]
 			struct WordToml {
-				$( $field_name: $snug_type ),*
+				$( $field_name: $crate::__internal_field_type!($snug_type, $field_num_bits) ),*
 			}
 
 			impl From<WordToml> for Word {
 				fn from(word_toml: WordToml) -> Self {
-					Self::new(
-						$( $crate::__internal_field_value!(word_toml.$field_name, $field_num_bits) ),*
-					)
+					Self::new( $( word_toml.$field_name ),* )
 				}
 			}
 

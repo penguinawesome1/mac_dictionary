@@ -1,17 +1,17 @@
 [a]
 id = 1
 wow = 2
-binary = 1
+binary = true
 ctx = 4
 
 [b]
 id = 1
 wow = 1
-binary = 1
+binary = true
 ctx = 1
 
 [c]
 id = 2000
 wow = 4
-binary = 0
+binary = false
 ctx = 9
