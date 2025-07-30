@@ -12,10 +12,10 @@ pub mod __internal_prelude {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __internal_impl_getter {
-	// base case to end recursion
+	// base case: no more fields to process
     ($snug_type:ty, $shift:expr, ) => {};
 
-	// if field num bits is one it returns a bool
+	// recursion case: if field num bits is one it returns a bool
 	(
         $snug_type:ty,
         $shift:expr,
@@ -33,7 +33,7 @@ macro_rules! __internal_impl_getter {
 		}
     };
 
-	// if field num bits is plural it returns snug type
+	// recursion case: if field num bits is plural it returns snug type
     (
         $snug_type:ty,
         $shift:expr,
