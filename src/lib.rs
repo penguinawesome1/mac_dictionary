@@ -82,7 +82,7 @@ macro_rules! __internal_field_value {
 /// # Examples
 ///
 /// ```
-/// use block_dictionary::dictionary;
+/// use mac_dictionary::dictionary;
 ///
 /// dictionary! {
 ///     r#type: u64,
