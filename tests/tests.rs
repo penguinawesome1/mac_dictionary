@@ -1,4 +1,4 @@
-use block_dictionary::{CliError, dictionary};
+use mac_dictionary::{CliError, dictionary};
 use std::path::Path;
 
 dictionary! {
