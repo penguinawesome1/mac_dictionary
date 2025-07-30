@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "block_dictionary"
+name = "mac_dictionary"
 version = "0.1.0"
 dependencies = [
  "indexmap",
