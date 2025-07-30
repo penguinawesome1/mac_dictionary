@@ -1,34 +1,35 @@
-use block_dictionary::{Block, CliError, definition, initialize_block_dictionary, load_blocks};
+use block_dictionary::{CliError, dictionary};
 use std::path::Path;
 
-#[test]
-fn test_config() -> Result<(), CliError> {
-    let blocks: Vec<Block> = load_blocks("./tests/Blocks.toml")?;
-    let air: Block = blocks[0];
-    let bedrock: Block = blocks[4];
-
-    assert!(air.is_replaceable());
-    assert!(!bedrock.is_breakable());
-    assert!(bedrock.is_visible());
-
-    Ok(())
+dictionary! {
+    r#type: u64,
+    id = 30,
+    wow = 3,
+    binary = 1,
+    ctx = 5,
 }
 
 #[test]
-fn test_missing() {
-    assert!(Block::MISSING.is_visible());
-    assert!(!Block::MISSING.is_replaceable());
-    assert_eq!(Block::MISSING, Block::default());
+fn test_word_access() {
+    let word: Word = Word::new(1000, 0, true, 3);
+
+    assert_eq!(word.id(), 1000);
+    assert_eq!(word.wow(), 0);
+    assert!(word.binary());
+    assert_eq!(word.ctx(), 3);
 }
 
 #[test]
-fn test_block_dictionary() -> Result<(), CliError> {
-    initialize_block_dictionary(Path::new("./tests/Blocks.toml"))?;
+fn test_initialize_dictionary() -> Result<(), CliError> {
+    initialize_dictionary(Path::new("./tests/Words.toml"))?;
 
-    let dirt = definition(2);
+    let a: &Word = definition(0);
+    let c: &Word = definition(2);
 
-    assert!(dirt.is_breakable());
-    assert!(dirt.is_visible());
+    println!("{}", c);
+
+    assert!(a.binary());
+    assert_eq!(c.id(), 2000);
 
     Ok(())
 }

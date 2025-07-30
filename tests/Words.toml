@@ -1,0 +1,17 @@
+[a]
+id = 1
+wow = 2
+binary = 1
+ctx = 4
+
+[b]
+id = 1
+wow = 1
+binary = 1
+ctx = 1
+
+[c]
+id = 2000
+wow = 4
+binary = 0
+ctx = 9

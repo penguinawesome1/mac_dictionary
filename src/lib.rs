@@ -1,89 +1,253 @@
-mod config;
+pub mod error;
 
-pub use crate::config::{CliError, load_blocks};
-use std::path::Path;
-use std::sync::OnceLock;
+pub use error::CliError;
 
-static BLOCK_DICTIONARY: OnceLock<Result<Vec<Block>, CliError>> = OnceLock::new();
-
-/// Initializes the global block dictionary.
-/// Returns an error if the dictionary has already been initialized.
-pub fn initialize_block_dictionary<P: AsRef<Path>>(path: P) -> Result<(), CliError> {
-    BLOCK_DICTIONARY.set(load_blocks(path)).map_err(|_| {
-        CliError::IoError(std::io::Error::new(
-            std::io::ErrorKind::AlreadyExists,
-            "Block dictionary already initialized",
-        ))
-    })?;
-
-    Ok(())
+#[doc(hidden)]
+pub mod __internal_prelude {
+    pub use indexmap;
+    pub use serde;
+    pub use std;
 }
 
-pub fn definition(value: usize) -> &'static Block {
-    match BLOCK_DICTIONARY.get() {
-        Some(Ok(dictionary)) => dictionary.get(value).unwrap_or(&Block::MISSING),
-        Some(Err(e)) => {
-            eprintln!("Error loading block dictionary: {}", e);
-            &Block::MISSING
-        }
-        None => {
-            eprintln!("Need to initialize block dictionary");
-            &Block::MISSING
-        }
-    }
-}
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __internal_impl_getter {
+	// base case to end recursion
+    ($snug_type:ty, $shift:expr, ) => {};
 
-macro_rules! impl_getter {
-    ($name:ident, $mask:expr) => {
-        pub const fn $name(&self) -> bool {
-            self.data & $mask != 0
+	// if field num bits is one it returns a bool
+	(
+        $snug_type:ty,
+        $shift:expr,
+        $field_name:ident = 1,
+        $( $rest:tt )*
+    ) => {
+        pub const fn $field_name(&self) -> bool {
+            (self.data >> $shift) & 1 != 0
         }
+
+        $crate::__internal_impl_getter! {
+ 			$snug_type,
+            $shift + 1,
+            $( $rest )*
+		}
+    };
+
+	// if field num bits is plural it returns snug type
+    (
+        $snug_type:ty,
+        $shift:expr,
+        $field_name:ident = $field_num_bits:literal,
+        $( $rest:tt )*
+    ) => {
+        pub const fn $field_name(&self) -> $snug_type {
+            let mask: $snug_type = (1 << $field_num_bits) - 1;
+            (self.data >> $shift) & mask
+        }
+
+        $crate::__internal_impl_getter! {
+ 			$snug_type,
+            $shift + $field_num_bits,
+            $( $rest )*
+		}
     };
 }
 
-/// Struct that stores generic block info.
-/// Intended to be used for dictionaries, not individual blocks
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Block {
-    data: u8,
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __internal_field_type {
+    ($snug_type:ty, 1) => {
+        bool
+    };
+    ($snug_type:ty, $field_num_bits:expr) => {
+        $snug_type
+    };
 }
 
-impl Block {
-    const HOVERABLE_MASK: u8 = 1;
-    const VISIBLE_MASK: u8 = 1 << 1;
-    const BREAKABLE_MASK: u8 = 1 << 2;
-    const COLLIDABLE_MASK: u8 = 1 << 3;
-    const REPLACEABLE_MASK: u8 = 1 << 4;
-
-    /// Represents the default block if any are missing or config fails to load.
-    pub const MISSING: Block = Self::new(false, true, false, true, false);
-
-    /// Creates a new block given all characteristics of it.
-    pub(crate) const fn new(
-        is_hoverable: bool,
-        is_visible: bool,
-        is_breakable: bool,
-        is_collidable: bool,
-        is_replaceable: bool,
-    ) -> Self {
-        let data: u8 = ((is_hoverable as u8) * Self::HOVERABLE_MASK)
-            | ((is_visible as u8) * Self::VISIBLE_MASK)
-            | ((is_breakable as u8) * Self::BREAKABLE_MASK)
-            | ((is_collidable as u8) * Self::COLLIDABLE_MASK)
-            | ((is_replaceable as u8) * Self::REPLACEABLE_MASK);
-
-        Self { data }
-    }
-
-    impl_getter!(is_hoverable, Self::HOVERABLE_MASK);
-    impl_getter!(is_visible, Self::VISIBLE_MASK);
-    impl_getter!(is_breakable, Self::BREAKABLE_MASK);
-    impl_getter!(is_collidable, Self::COLLIDABLE_MASK);
-    impl_getter!(is_replaceable, Self::REPLACEABLE_MASK);
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __internal_field_value {
+    ($val:expr, 1) => {
+        $val != 0
+    };
+    ($val:expr, $field_num_bits:literal) => {
+        $val
+    };
 }
 
-impl Default for Block {
-    fn default() -> Self {
-        Block::MISSING
-    }
+/// Macro to create a dictionary.
+/// Can create individual words or store them and access by their id.
+/// Capable of loading a list of words from toml.
+///
+/// # Examples
+///
+/// ```
+/// use block_dictionary::dictionary;
+///
+/// dictionary! {
+///     r#type: u64,
+///     id = 30,
+///     wow = 3,
+///     binary = 1,
+///		ctx = 5,
+/// }
+///
+/// fn main() {
+/// 	let word: Word = Word::new(1000, 0, true, 3);
+///
+/// 	assert_eq!(word.id(), 1000);
+/// 	assert_eq!(word.wow(), 0);
+/// 	assert!(word.binary());
+/// 	assert_eq!(word.ctx(), 3);
+/// }
+/// ```
+#[macro_export]
+macro_rules! dictionary {
+    (
+        r#type: $snug_type:ty,
+        $( $field_name:ident = $field_num_bits:tt ),*
+        $(,)?
+    ) => {
+		pub use __internal_dictionary::*;
+
+		mod __internal_dictionary {
+			use $crate::__internal_prelude::{
+                serde::Deserialize,
+				indexmap::IndexMap,
+				std::path::Path,
+				std::sync::OnceLock,
+				std::fs,
+				std::fmt
+            };
+
+			use $crate::error::CliError;
+
+			const SUM: u32 = 0 $( + $field_num_bits )*;
+			const _: () = assert!(SUM <= (std::mem::size_of::<$snug_type>() * 8) as u32,
+					"Total bits for fields exceeds the capacity of the dictionary type!");
+
+			#[derive(Default, Deserialize)]
+			pub struct Word {
+				data: $snug_type,
+			}
+
+			impl Word {
+				pub const MISSING: Self = Self { data: 0 };
+
+				pub fn new(
+					$( $field_name: $crate::__internal_field_type!($snug_type, $field_num_bits) ),*
+				) -> Self {
+					let mut shift: $snug_type = 0;
+					let data: $snug_type = 0 $(
+							| {
+								let field_value: $snug_type = $field_name as $snug_type;
+
+								assert!(
+									field_value < 2f32.powi($field_num_bits) as $snug_type,
+									concat!("Value for '", stringify!(field_value), "' exceeds its allocated ",
+										stringify!($field_num_bits), " bits!")
+								);
+
+								let mask: $snug_type = (1 << $field_num_bits) - 1;
+								let value: $snug_type = (field_value & mask) << shift;
+
+								shift += $field_num_bits as $snug_type;
+								value
+							}
+						)*;
+
+					Self { data }
+				}
+
+				$crate::__internal_impl_getter! {
+					$snug_type,
+					0,
+					$( $field_name = $field_num_bits, )*
+				}
+			}
+
+			impl fmt::Display for Word {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    let fields = vec![
+                        $(
+                            format!("{}: {}", stringify!($field_name), self.$field_name())
+                        ),*
+                    ];
+                    write!(f, "{{ {} }}", fields.join(", "))
+                }
+            }
+
+			// -- WordToml --
+
+			#[derive(Deserialize)]
+			struct WordTomlMap {
+				#[serde(flatten)]
+				words: IndexMap<String, WordToml>,
+			}
+
+			#[derive(Deserialize)]
+			struct WordToml {
+				$( $field_name: $snug_type ),*
+			}
+
+			impl From<WordToml> for Word {
+				fn from(word_toml: WordToml) -> Self {
+					Self::new(
+						$( $crate::__internal_field_value!(word_toml.$field_name, $field_num_bits) ),*
+					)
+				}
+			}
+
+			// -- Dictionary --
+
+			static DICTIONARY: OnceLock<Vec<Word>> = OnceLock::new();
+
+			/// Get the definition of a word from the loaded dictionary given its position.
+			pub fn definition(value: usize) -> &'static Word {
+				match DICTIONARY.get() {
+					Some(dictionary) => dictionary.get(value).unwrap_or(&Word::MISSING),
+					None => {
+						eprintln!("Need to initialize dictionary");
+						&Word::MISSING
+					}
+				}
+			}
+
+			/// Initialize the static dictionary given a toml path.
+			#[must_use]
+			pub fn initialize_dictionary<P: AsRef<Path>>(path: P) -> Result<(), CliError> {
+				DICTIONARY.set(load_words(path)?).map_err(|_| {
+					CliError::IoError(std::io::Error::new(
+						std::io::ErrorKind::AlreadyExists,
+						"Dictionary was already initialized",
+					))
+				})?;
+
+				Ok(())
+			}
+
+			/// Get an ordered vector of the created words from a toml file given a path.
+			#[must_use]
+			pub fn load_words<P: AsRef<Path>>(path: P) -> Result<Vec<Word>, CliError> {
+				let contents: String = fs::read_to_string(path)?;
+				let word_toml_map: WordTomlMap = toml::from_str(&contents)?;
+				let named_toml_words: Vec<(String, WordToml)> = word_toml_map.words.into_iter().collect();
+
+				named_toml_words
+					.into_iter()
+					.enumerate()
+					.map(|(n, (_, word_toml))| {
+						if n > (u8::MAX as usize) {
+							return Err(CliError::TooManyWordsError {
+								count: n,
+								max_allowed: u8::MAX,
+							});
+						}
+
+						Ok(Word::from(word_toml))
+					})
+					.collect::<Result<Vec<Word>, CliError>>()
+			}
+		}
+    };
 }
