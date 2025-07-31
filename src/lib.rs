@@ -122,36 +122,38 @@ macro_rules! dictionary {
 
 			use $crate::error::CliError;
 
+			pub type SnugType = $snug_type;
+
 			const SUM: u32 = 0 $( + $field_num_bits )*;
-			const _: () = assert!(SUM <= (std::mem::size_of::<$snug_type>() * 8) as u32,
+			const _: () = assert!(SUM <= (std::mem::size_of::<SnugType>() * 8) as u32,
 					"Total bits for fields exceeds the capacity of the dictionary type!");
 
 			#[derive(Default, Deserialize)]
 			pub struct Word {
-				data: $snug_type,
+				data: SnugType,
 			}
 
 			impl Word {
 				pub const MISSING: Self = Self { data: 0 };
 
 				pub fn new(
-					$( $field_name: $crate::__internal_field_type!($snug_type, $field_num_bits) ),*
+					$( $field_name: $crate::__internal_field_type!(SnugType, $field_num_bits) ),*
 				) -> Self {
-					let mut shift: $snug_type = 0;
-					let data: $snug_type = 0 $(
+					let mut shift: SnugType = 0;
+					let data: SnugType = 0 $(
 							| {
-								let field_value: $snug_type = $field_name as $snug_type;
+								let field_value: SnugType = $field_name as SnugType;
 
 								assert!(
-									field_value < 2f32.powi($field_num_bits) as $snug_type,
+									field_value < 2f32.powi($field_num_bits) as SnugType,
 									concat!("Value for '", stringify!(field_value), "' exceeds its allocated ",
 										stringify!($field_num_bits), " bits!")
 								);
 
-								let mask: $snug_type = (1 << $field_num_bits) - 1;
-								let value: $snug_type = (field_value & mask) << shift;
+								let mask: SnugType = (1 << $field_num_bits) - 1;
+								let value: SnugType = (field_value & mask) << shift;
 
-								shift += $field_num_bits as $snug_type;
+								shift += $field_num_bits as SnugType;
 								value
 							}
 						)*;
@@ -160,7 +162,7 @@ macro_rules! dictionary {
 				}
 
 				$crate::__internal_impl_getter! {
-					$snug_type,
+					SnugType,
 					0,
 					$( $field_name = $field_num_bits, )*
 				}
@@ -187,7 +189,7 @@ macro_rules! dictionary {
 
 			#[derive(Deserialize)]
 			struct WordToml {
-				$( $field_name: $crate::__internal_field_type!($snug_type, $field_num_bits) ),*
+				$( $field_name: $crate::__internal_field_type!(SnugType, $field_num_bits) ),*
 			}
 
 			impl From<WordToml> for Word {
